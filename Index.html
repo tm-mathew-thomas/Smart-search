@@ -11,14 +11,30 @@
       padding: 20px;
     }
     .container {
-      max-width: 700px;
+      max-width: 800px;
       margin: 0 auto;
     }
     h1 {
       text-align: center;
       font-size: 36px;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       color: #f8f9fa;
+    }
+    .tabs {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .tab {
+      background-color: #303134;
+      color: #e8eaed;
+      border: none;
+      padding: 10px 20px;
+      margin: 0 5px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    .tab.active {
+      background-color: #4285f4;
     }
     .search-bar {
       display: flex;
@@ -26,7 +42,7 @@
       margin-bottom: 20px;
     }
     input[type="text"] {
-      width: 100%;
+      flex: 1;
       padding: 12px;
       font-size: 16px;
       border: none;
@@ -68,10 +84,16 @@
     .result-item {
       margin-top: 12px;
     }
-    .result-item img {
+    .result-item img.favicon {
       vertical-align: middle;
       width: 16px;
       margin-right: 8px;
+    }
+    .result-item img.preview {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+      margin-top: 8px;
     }
     a {
       color: #8ab4f8;
@@ -85,20 +107,33 @@
 <body>
   <div class="container">
     <h1>Smart Search</h1>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab(event, 'overview')">Overview</button>
+      <button class="tab" onclick="showTab(event, 'results')">Web Results</button>
+      <button class="tab" onclick="showTab(event, 'images')">Images</button>
+    </div>
+
     <div class="search-bar">
       <input type="text" id="query" placeholder="Type your question..." oninput="autocomplete()">
       <button onclick="search()">Search</button>
     </div>
+
     <div id="suggestions"></div>
 
-    <div class="result-box">
+    <div class="result-box tab-content" id="overview" style="display:block">
       <h2>Summary:</h2>
       <p id="summary-text">Ask something and hit search!</p>
     </div>
 
-    <div class="result-box">
+    <div class="result-box tab-content" id="results" style="display:none">
       <h2>Related Links:</h2>
       <div id="links-container"></div>
+    </div>
+
+    <div class="result-box tab-content" id="images" style="display:none">
+      <h2>Images:</h2>
+      <p>Image results coming soon...</p>
     </div>
   </div>
 
@@ -107,14 +142,14 @@
       const query = document.getElementById("query").value;
       if (!query) return;
 
-      // DuckDuckGo Summary
+      // Overview summary via DuckDuckGo API
       fetch(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1`)
         .then(res => res.json())
         .then(data => {
           document.getElementById("summary-text").textContent = data.AbstractText || "No summary found.";
         });
 
-      // DuckDuckGo Links (CORS proxy)
+      // Web results via DuckDuckGo HTML scraping
       fetch(`https://corsproxy.io/?https://html.duckduckgo.com/html/?q=${query}`)
         .then(res => res.text())
         .then(html => {
@@ -128,10 +163,13 @@
             const title = link.textContent;
             const domain = new URL(url).hostname;
             const favicon = `https://www.google.com/s2/favicons?domain=${domain}`;
+            const preview = `https://via.placeholder.com/400x200.png?text=${domain}`;
             container.innerHTML += `
               <div class="result-item">
-                <img src="${favicon}" alt="favicon">
+                <img class="favicon" src="${favicon}" alt="favicon">
                 <a href="${url}" target="_blank">${title}</a>
+                <br>
+                <img class="preview" src="${preview}" alt="preview">
               </div>
             `;
           });
@@ -147,6 +185,13 @@
         if (query)
           container.innerHTML += `<div onclick="document.getElementById('query').value='${query + suffix}'">${query + suffix}</div>`;
       });
+    }
+
+    function showTab(event, tabName) {
+      document.querySelectorAll(".tab-content").forEach(tab => tab.style.display = "none");
+      document.getElementById(tabName).style.display = "block";
+      document.querySelectorAll(".tab").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
     }
   </script>
 </body>
