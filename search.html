@@ -1,68 +1,133 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Smart Search</title>
-    <style>
-        body { font-family: Arial; margin: 40px; background-color: #f9f9f9; }
-        .search-box { text-align: center; margin-bottom: 30px; }
-        input[type="text"] { width: 50%; padding: 10px; font-size: 18px; }
-        button { padding: 10px 20px; font-size: 18px; }
-        .result { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .link { margin-top: 15px; }
-        .favicon { width: 16px; vertical-align: middle; margin-right: 8px; }
-        .suggestions div:hover { background-color: #e0e0e0; cursor: pointer; }
-    </style>
-    <script>
-        function fetchSuggestions(text) {
-            if (text.length < 2) return;
-            fetch(`/autocomplete?q=${text}`)
-                .then(res => res.json())
-                .then(data => {
-                    const container = document.getElementById("suggestions");
-                    container.innerHTML = "";
-                    data.forEach(s => {
-                        const div = document.createElement("div");
-                        div.textContent = s;
-                        div.onclick = () => document.getElementById("query").value = s;
-                        container.appendChild(div);
-                    });
-                });
-        }
-    </script>
+  <title>Smart Search</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+    }
+    .search-box {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    input[type="text"] {
+      width: 50%;
+      padding: 10px;
+      font-size: 18px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-left: 10px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #3367d6;
+    }
+    #suggestions {
+      margin-top: 10px;
+      text-align: center;
+    }
+    #suggestions div {
+      display: inline-block;
+      background-color: #e0e0e0;
+      padding: 5px 10px;
+      margin: 2px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #summary, #results {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .result-item {
+      margin-top: 10px;
+    }
+    .result-item img {
+      vertical-align: middle;
+      margin-right: 8px;
+      width: 16px;
+    }
+  </style>
 </head>
 <body>
-    <div class="search-box">
-        <h1>Smart Search</h1>
-        <form method="POST">
-            <input type="text" id="query" name="query" placeholder="Search..." autocomplete="off"
-                   value="{{ query }}" onkeyup="fetchSuggestions(this.value)">
-            <button type="submit">Go</button>
-            <div id="suggestions" class="suggestions"></div>
-        </form>
-    </div>
-    {% if query %}
-    <div class="result">
-        <h2>Summary:</h2>
-        <p>{{ summary }}</p>
-        <h2>Related Links:</h2>
-        {% for link in links %}
-            <div class="link">
-                <img class="favicon" src="{{ link.favicon }}" alt="favicon">
-                <a href="{{ link.url }}" target="_blank">{{ link.title }}</a>
-            </div>
-        {% else %}
-            <p>No links found.</p>
-        {% endfor %}
-        <div style="margin-top: 30px;">
-            {% if page > 1 %}
-                <a href="?page={{ page - 1 }}">&laquo; Previous</a>
-            {% endif %}
-            <span>Page {{ page }}</span>
-            {% if page * per_page < total %}
-                <a href="?page={{ page + 1 }}">Next &raquo;</a>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
+  <h1>Smart Search</h1>
+  <div class="search-box">
+    <input type="text" id="query" placeholder="Ask something..." oninput="autocomplete()">
+    <button onclick="search()">Search</button>
+    <div id="suggestions"></div>
+  </div>
+
+  <div id="summary">
+    <h2>Summary:</h2>
+    <p id="summary-text">Type a query and click Search to get started.</p>
+  </div>
+
+  <div id="results">
+    <h2>Links:</h2>
+    <div id="links-container"></div>
+  </div>
+
+  <script>
+    function search() {
+      const query = document.getElementById("query").value;
+      if (!query) return;
+
+      // Summary from DuckDuckGo
+      fetch(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("summary-text").textContent = data.AbstractText || "No summary found.";
+        });
+
+      // Links via DuckDuckGo HTML scraping
+      fetch(`https://corsproxy.io/?https://html.duckduckgo.com/html/?q=${query}`)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          const links = Array.from(doc.querySelectorAll(".result__url"));
+          const container = document.getElementById("links-container");
+          container.innerHTML = "";
+          links.slice(0, 5).forEach(link => {
+            const url = link.href;
+            const title = link.textContent;
+            const domain = new URL(url).hostname;
+            const favicon = `https://www.google.com/s2/favicons?domain=${domain}`;
+            const item = `
+              <div class="result-item">
+                <img src="${favicon}" alt="favicon">
+                <a href="${url}" target="_blank">${title}</a>
+              </div>
+            `;
+            container.innerHTML += item;
+          });
+        });
+    }
+
+    function autocomplete() {
+      const query = document.getElementById("query").value;
+      const suffixes = [" news", " stats", " results", " predictions"];
+      const container = document.getElementById("suggestions");
+      container.innerHTML = "";
+      suffixes.forEach(suffix => {
+        if (query)
+          container.innerHTML += `<div onclick="document.getElementById('query').value='${query + suffix}'">${query + suffix}</div>`;
+      });
+    }
+  </script>
 </body>
 </html>
