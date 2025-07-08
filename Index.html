@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Search</title>
+  <title>Multi-Tab Smart Search</title>
   <style>
     body {
       background-color: #202124;
@@ -11,30 +11,12 @@
       padding: 20px;
     }
     .container {
-      max-width: 800px;
-      margin: 0 auto;
+      max-width: 900px;
+      margin: auto;
     }
     h1 {
       text-align: center;
-      font-size: 36px;
-      margin-bottom: 10px;
       color: #f8f9fa;
-    }
-    .tabs {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .tab {
-      background-color: #303134;
-      color: #e8eaed;
-      border: none;
-      padding: 10px 20px;
-      margin: 0 5px;
-      border-radius: 20px;
-      cursor: pointer;
-    }
-    .tab.active {
-      background-color: #4285f4;
     }
     .search-bar {
       display: flex;
@@ -59,26 +41,39 @@
       border-radius: 0 24px 24px 0;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #357ae8;
-    }
-    #suggestions {
-      text-align: center;
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
       margin-bottom: 20px;
+      gap: 6px;
     }
-    #suggestions div {
-      display: inline-block;
+    .search-tab {
       background-color: #3c4043;
-      color: #e8eaed;
-      padding: 6px 12px;
-      margin: 4px;
       border-radius: 16px;
+      padding: 8px 14px;
+      cursor: pointer;
+      position: relative;
+    }
+    .search-tab.active {
+      background-color: #4285f4;
+    }
+    .search-tab span {
+      margin-right: 10px;
+    }
+    .close-btn {
+      position: absolute;
+      right: 8px;
+      top: 5px;
+      background: transparent;
+      color: #e8eaed;
+      border: none;
+      font-size: 14px;
       cursor: pointer;
     }
     .result-box {
       background-color: #303134;
       padding: 20px;
-      border-radius: 16px;
+      border-radius: 12px;
       margin-bottom: 20px;
     }
     .result-item {
@@ -106,58 +101,66 @@
 </head>
 <body>
   <div class="container">
-    <h1>Smart Search</h1>
-
-    <div class="tabs">
-      <button class="tab active" onclick="showTab(event, 'overview')">Overview</button>
-      <button class="tab" onclick="showTab(event, 'results')">Web Results</button>
-      <button class="tab" onclick="showTab(event, 'images')">Images</button>
-    </div>
-
+    <h1>Smart Search Tabs</h1>
     <div class="search-bar">
-      <input type="text" id="query" placeholder="Type your question..." oninput="autocomplete()">
-      <button onclick="search()">Search</button>
+      <input type="text" id="query" placeholder="Type your question...">
+      <button onclick="newSearch()">Search</button>
     </div>
 
-    <div id="suggestions"></div>
+    <div class="tab-bar" id="tab-bar"></div>
 
-    <div class="result-box tab-content" id="overview" style="display:block">
-      <h2>Summary:</h2>
-      <p id="summary-text">Ask something and hit search!</p>
-    </div>
-
-    <div class="result-box tab-content" id="results" style="display:none">
-      <h2>Related Links:</h2>
-      <div id="links-container"></div>
-    </div>
-
-    <div class="result-box tab-content" id="images" style="display:none">
-      <h2>Images:</h2>
-      <p>Image results coming soon...</p>
-    </div>
+    <div id="tab-content-area"></div>
   </div>
 
   <script>
-    function search() {
-      const query = document.getElementById("query").value;
+    let tabIdCounter = 0;
+    let activeTabId = null;
+
+    function newSearch() {
+      const query = document.getElementById("query").value.trim();
       if (!query) return;
 
-      // Overview summary via DuckDuckGo API
+      const tabId = `tab-${++tabIdCounter}`;
+      const tabLabel = document.createElement("div");
+      tabLabel.className = "search-tab active";
+      tabLabel.id = `label-${tabId}`;
+      tabLabel.innerHTML = `<span>${query}</span><button class="close-btn" onclick="closeTab('${tabId}')">✕</button>`;
+      tabLabel.onclick = () => switchTab(tabId);
+      document.getElementById("tab-bar").appendChild(tabLabel);
+
+      document.querySelectorAll(".search-tab").forEach(tab => tab.classList.remove("active"));
+      tabLabel.classList.add("active");
+      activeTabId = tabId;
+
+      const tabContent = document.createElement("div");
+      tabContent.className = "tab-content";
+      tabContent.id = tabId;
+      tabContent.innerHTML = `
+        <div class="result-box">
+          <h2>Summary:</h2>
+          <p id="summary-${tabId}">Loading summary...</p>
+        </div>
+        <div class="result-box">
+          <h2>Related Links:</h2>
+          <div id="links-${tabId}"></div>
+        </div>
+      `;
+      document.getElementById("tab-content-area").appendChild(tabContent);
+      hideOtherTabs(tabId);
+
       fetch(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1`)
         .then(res => res.json())
         .then(data => {
-          document.getElementById("summary-text").textContent = data.AbstractText || "No summary found.";
+          document.getElementById(`summary-${tabId}`).textContent = data.AbstractText || "No summary found.";
         });
 
-      // Web results via DuckDuckGo HTML scraping
       fetch(`https://corsproxy.io/?https://html.duckduckgo.com/html/?q=${query}`)
         .then(res => res.text())
         .then(html => {
           const parser = new DOMParser();
           const doc = parser.parseFromString(html, "text/html");
           const links = Array.from(doc.querySelectorAll(".result__url"));
-          const container = document.getElementById("links-container");
-          container.innerHTML = "";
+          const container = document.getElementById(`links-${tabId}`);
           links.slice(0, 5).forEach(link => {
             const url = link.href;
             const title = link.textContent;
@@ -167,8 +170,7 @@
             container.innerHTML += `
               <div class="result-item">
                 <img class="favicon" src="${favicon}" alt="favicon">
-                <a href="${url}" target="_blank">${title}</a>
-                <br>
+                <a href="${url}" target="_blank">${title}</a><br>
                 <img class="preview" src="${preview}" alt="preview">
               </div>
             `;
@@ -176,22 +178,34 @@
         });
     }
 
-    function autocomplete() {
-      const query = document.getElementById("query").value;
-      const suffixes = [" news", " stats", " results", " predictions"];
-      const container = document.getElementById("suggestions");
-      container.innerHTML = "";
-      suffixes.forEach(suffix => {
-        if (query)
-          container.innerHTML += `<div onclick="document.getElementById('query').value='${query + suffix}'">${query + suffix}</div>`;
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-content").forEach(el => el.style.display = "none");
+      document.getElementById(tabId).style.display = "block";
+      document.querySelectorAll(".search-tab").forEach(tab => tab.classList.remove("active"));
+      document.getElementById(`label-${tabId}`).classList.add("active");
+      activeTabId = tabId;
+    }
+
+    function hideOtherTabs(activeId) {
+      document.querySelectorAll(".tab-content").forEach(el => {
+        el.style.display = (el.id === activeId) ? "block" : "none";
       });
     }
 
-    function showTab(event, tabName) {
-      document.querySelectorAll(".tab-content").forEach(tab => tab.style.display = "none");
-      document.getElementById(tabName).style.display = "block";
-      document.querySelectorAll(".tab").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+    function closeTab(tabId) {
+      const label = document.getElementById(`label-${tabId}`);
+      const content = document.getElementById(tabId);
+      if (label) label.remove();
+      if (content) content.remove();
+
+      // Auto-select last remaining tab
+      const remainingTabs = document.querySelectorAll(".search-tab");
+      if (remainingTabs.length) {
+        const lastTabId = remainingTabs[remainingTabs.length - 1].id.replace("label-", "");
+        switchTab(lastTabId);
+      } else {
+        activeTabId = null;
+      }
     }
   </script>
 </body>
