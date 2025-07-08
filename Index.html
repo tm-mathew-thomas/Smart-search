@@ -4,81 +4,102 @@
   <title>Smart Search</title>
   <style>
     body {
+      background-color: #202124;
+      color: #e8eaed;
       font-family: Arial, sans-serif;
-      margin: 40px;
-      background-color: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
     }
     h1 {
       text-align: center;
+      font-size: 36px;
+      margin-bottom: 20px;
+      color: #f8f9fa;
     }
-    .search-box {
-      text-align: center;
-      margin-bottom: 30px;
+    .search-bar {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
     }
     input[type="text"] {
-      width: 50%;
-      padding: 10px;
-      font-size: 18px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 24px 0 0 24px;
+      background-color: #303134;
+      color: #e8eaed;
     }
     button {
-      padding: 10px 20px;
-      font-size: 18px;
-      margin-left: 10px;
+      padding: 12px 20px;
+      font-size: 16px;
       background-color: #4285f4;
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 0 24px 24px 0;
       cursor: pointer;
     }
     button:hover {
-      background-color: #3367d6;
+      background-color: #357ae8;
     }
     #suggestions {
-      margin-top: 10px;
       text-align: center;
+      margin-bottom: 20px;
     }
     #suggestions div {
       display: inline-block;
-      background-color: #e0e0e0;
-      padding: 5px 10px;
-      margin: 2px;
-      border-radius: 4px;
+      background-color: #3c4043;
+      color: #e8eaed;
+      padding: 6px 12px;
+      margin: 4px;
+      border-radius: 16px;
       cursor: pointer;
     }
-    #summary, #results {
-      background: #fff;
+    .result-box {
+      background-color: #303134;
       padding: 20px;
-      border-radius: 8px;
+      border-radius: 16px;
       margin-bottom: 20px;
     }
     .result-item {
-      margin-top: 10px;
+      margin-top: 12px;
     }
     .result-item img {
       vertical-align: middle;
-      margin-right: 8px;
       width: 16px;
+      margin-right: 8px;
+    }
+    a {
+      color: #8ab4f8;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <h1>Smart Search</h1>
-  <div class="search-box">
-    <input type="text" id="query" placeholder="Ask something..." oninput="autocomplete()">
-    <button onclick="search()">Search</button>
+  <div class="container">
+    <h1>Smart Search</h1>
+    <div class="search-bar">
+      <input type="text" id="query" placeholder="Type your question..." oninput="autocomplete()">
+      <button onclick="search()">Search</button>
+    </div>
     <div id="suggestions"></div>
-  </div>
 
-  <div id="summary">
-    <h2>Summary:</h2>
-    <p id="summary-text">Type a query and click Search to get started.</p>
-  </div>
+    <div class="result-box">
+      <h2>Summary:</h2>
+      <p id="summary-text">Ask something and hit search!</p>
+    </div>
 
-  <div id="results">
-    <h2>Links:</h2>
-    <div id="links-container"></div>
+    <div class="result-box">
+      <h2>Related Links:</h2>
+      <div id="links-container"></div>
+    </div>
   </div>
 
   <script>
@@ -86,14 +107,14 @@
       const query = document.getElementById("query").value;
       if (!query) return;
 
-      // Summary from DuckDuckGo
+      // DuckDuckGo Summary
       fetch(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1`)
         .then(res => res.json())
         .then(data => {
           document.getElementById("summary-text").textContent = data.AbstractText || "No summary found.";
         });
 
-      // Links via DuckDuckGo HTML scraping
+      // DuckDuckGo Links (CORS proxy)
       fetch(`https://corsproxy.io/?https://html.duckduckgo.com/html/?q=${query}`)
         .then(res => res.text())
         .then(html => {
@@ -107,13 +128,12 @@
             const title = link.textContent;
             const domain = new URL(url).hostname;
             const favicon = `https://www.google.com/s2/favicons?domain=${domain}`;
-            const item = `
+            container.innerHTML += `
               <div class="result-item">
                 <img src="${favicon}" alt="favicon">
                 <a href="${url}" target="_blank">${title}</a>
               </div>
             `;
-            container.innerHTML += item;
           });
         });
     }
